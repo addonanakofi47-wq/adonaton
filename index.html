@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Adonaton Business Empire</title>
+<style>
+body { font-family:sans-serif; background:#041025; color:#dff3fb; margin:0; padding:0; }
+header { padding:16px; display:flex; justify-content:space-between; background:#02061c; }
+button { margin:2px; padding:6px 10px; cursor:pointer; background:#0d3b66; color:#dff3fb; border:none; border-radius:4px;}
+button:hover { background:#146c94; }
+main { padding:20px; }
+input { margin:4px; padding:6px; border-radius:4px; border:none; }
+h1,h2,h3 { margin:10px 0; }
+.ai-box { border:1px solid #888; padding:8px; max-height:200px; overflow:auto; margin:8px 0; background:#0b1a2f;}
+.task { margin-bottom:6px; }
+.card { background:#0b1a2f; padding:10px; margin:6px 0; border-radius:6px; }
+</style>
+</head>
+<body>
+<header>
+  <div><b>ADONATON BUSINESS EMPIRE</b><br><small>Empowering Hidden Talent — 50/50 Profit</small></div>
+  <div>
+    <button onclick="showView('home')">Home</button>
+    <button onclick="showView('apply')">Apply</button>
+    <button onclick="showView('workerLogin')">Worker</button>
+    <button onclick="showView('ownerLogin')">Owner</button>
+    <button id="logoutBtn" onclick="logout()" style="display:none">Logout</button>
+  </div>
+</header>
+<main>
+<div id="homeView">
+  <h1>Welcome to Adonaton</h1>
+  <p>We recruit, train, and empower talented individuals. Earn while you grow. 50/50 profit share.</p>
+  <p>Showcase your skills. Join today!</p>
+</div>
+
+<div id="applyView" style="display:none">
+  <h2>Apply as Worker</h2>
+  <div class="card">
+    <input id="applyName" placeholder="Full Name"><br>
+    <input id="applyEmail" placeholder="Email"><br>
+    <input id="applyDepartment" placeholder="Department (Music, Tech, Art, etc)"><br>
+    <button onclick="registerWorker()">Register</button>
+  </div>
+</div>
+
+<div id="workerLoginView" style="display:none">
+  <h2>Worker Login</h2>
+  <div class="card">
+    <input id="workerEmail" placeholder="Email"><br>
+    <input id="workerPassword" placeholder="Password"><br>
+    <button onclick="workerLogin()">Login</button>
+  </div>
+</div>
+
+<div id="workerView" style="display:none">
+  <h2 id="workerName"></h2>
+  <p>Earnings GH₵ <span id="workerEarnings"></span></p>
+  <h3>Tasks</h3>
+  <div id="taskList"></div>
+  <h3>AI Assistant</h3>
+  <div class="ai-box" id="aiBox"></div>
+  <input id="aiInput" placeholder="Ask me something" style="width:70%"><button onclick="sendAI()">Send</button>
+</div>
+
+<div id="ownerLoginView" style="display:none">
+  <h2>Owner Login</h2>
+  <div class="card">
+    <input id="ownerEmail" placeholder="Email"><br>
+    <input id="ownerPassword" placeholder="Password"><br>
+    <button onclick="ownerLogin()">Login</button>
+  </div>
+</div>
+
+<div id="ownerView" style="display:none">
+  <h2>Owner Dashboard</h2>
+  <div class="card">Total Workers: <span id="totalWorkers"></span></div>
+  <div class="card">Total Earnings GH₵ <span id="totalEarnings"></span></div>
+  <h3>Donations</h3>
+  <div class="card">Send support via MOMO: 0242127716</div>
+</div>
+</main>
+
+<script>
+const OWNER_EMAIL = 'addonanakofi47@gmail.com';
+const OWNER_PASS = '23456';
+let workers = JSON.parse(localStorage.getItem('adon_workers') || '[]');
+let currentWorker = null;
+let aiMessages = [{role:'assistant', text:'Ask me anything about training or motivation.'}];
+let tasks = [];
+
+function showView(view){
+  ['home','apply','workerLogin','worker','ownerLogin','owner'].forEach(v => document.getElementById(v+'View').style.display = v===view?'block':'none');
+  document.getElementById('logoutBtn').style.display = (view==='worker' || view==='owner')?'inline':'none';
+}
+
+function saveWorkers(){ localStorage.setItem('adon_workers', JSON.stringify(workers)); }
+
+function uid(){return Date.now()+'-'+Math.random().toString(36).slice(2,9);}
+function currency(n){return Number(n||0).toLocaleString();}
+function getToday(){ return new Date().toDateString(); }
+function generateTask(){ const t=['Write a hook','Fix a bug','Draw a sketch','Promote online','Create video','Test feature']; return {id:uid(),task:t[Math.floor(Math.random()*t.length)],payout:Math.floor(Math.random()*131)+20,completed:false}; }
+
+function getWorkerTasks(id){
+  const key = 'tasks_'+id;
+  let saved = JSON.parse(localStorage.getItem(key)||'{}');
+  if(saved.date === getToday() && saved.tasks) return saved.tasks;
+  const newTasks = [generateTask(), generateTask(), generateTask()];
+  localStorage.setItem(key, JSON.stringify({date:getToday(), tasks:newTasks}));
+  return newTasks;
+}
+
+function registerWorker(){
+  const name=document.getElementById('applyName').value.trim();
+  const email=document.getElementById('applyEmail').value.trim();
+  const dept=document.getElementById('applyDepartment').value.trim();
+  if(!name||!email){alert('Name & email required'); return;}
+  if(workers.find(w=>w.email===email)){alert('Worker exists'); return;}
+  const pw=Math.random().toString(36).slice(2,8);
+  const w={id:uid(), name, email, department:dept||'General', password:pw, earnings:0};
+  workers.push(w); saveWorkers();
+  alert('Registered! PW: '+pw);
+  currentWorker=w;
+  tasks=getWorkerTasks(w.id);
+  showWorkerDashboard();
+}
+
+function workerLogin(){
+  const email=document.getElementById('workerEmail').value.trim();
+  const password=document.getElementById('workerPassword').value.trim();
+  const w=workers.find(w=>w.email===email);
+  if(!w){alert('No worker'); return;}
+  if(w.password!==password){alert('Wrong password'); return;}
+  currentWorker=w;
+  tasks=getWorkerTasks(w.id);
+  showWorkerDashboard();
+}
+
+function showWorkerDashboard(){
+  document.getElementById('workerName').innerText=currentWorker.name+"'s Dashboard";
+  document.getElementById('workerEarnings').innerText=currency(currentWorker.earnings);
+  renderTasks();
+  renderAI();
+  showView('worker');
+}
+
+function renderTasks(){
+  const container=document.getElementById('taskList'); container.innerHTML='';
+  tasks.forEach(t=>{
+    const div=document.createElement('div'); div.className='task';
+    div.innerHTML=`${t.task} - GH₵ ${t.payout} ${t.completed?'':'<button onclick="completeTask(\''+t.id+'\')">Complete</button>'}`;
+    container.appendChild(div);
+  });
+}
+
+function completeTask(id){
+  const t=tasks.find(x=>x.id===id);
+  if(!t || t.completed) return;
+  t.completed=true;
+  currentWorker.earnings+=t.payout;
+  saveWorkers();
+  localStorage.setItem('tasks_'+currentWorker.id, JSON.stringify({date:getToday(), tasks}));
+  alert('Credited GH₵ '+currency(t.payout));
+  showWorkerDashboard();
+}
+
+function sendAI(){
+  const input=document.getElementById('aiInput').value.trim();
+  if(!input) return;
+  aiMessages.push({role:'user', text: input});
+  document.getElementById('aiInput').value='';
+  let reply='Interesting!';
+  const txt=input.toLowerCase();
+  if(txt.includes('earn')) reply='Complete daily tasks to earn more.';
+  if(txt.includes('motivate')) reply='Small daily wins count!';
+  if(txt.includes('help')) reply='Focus on one task at a time.';
+  aiMessages.push({role:'assistant', text:reply});
+  renderAI();
+}
+
+function renderAI(){
+  const box=document.getElementById('aiBox'); box.innerHTML='';
+  aiMessages.forEach(m=>{ const div=document.createElement('div'); div.innerHTML=`<b>${m.role}</b>: ${m.text}`; box.appendChild(div); });
+}
+
+function ownerLogin(){
+  const email=document.getElementById('ownerEmail').value.trim();
+  const password=document.getElementById('ownerPassword').value.trim();
+  if(email===OWNER_EMAIL && password===OWNER_PASS){ showOwnerDashboard(); }
+  else alert('Wrong credentials');
+}
+
+function showOwnerDashboard(){
+  document.getElementById('totalWorkers').innerText=workers.length;
+  document.getElementById('totalEarnings').innerText=currency(workers.reduce((s,w)=>s+w.earnings,0));
+  showView('owner');
+}
+
+function logout(){ currentWorker=null; showView('home'); }
+
+showView('home');
+</script>
+</body>
+</html>
+
